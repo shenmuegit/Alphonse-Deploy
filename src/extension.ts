@@ -19,78 +19,172 @@ let logger: Logger;
 let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
+	// 首先初始化输出通道，确保即使后续出错也能记录日志
 	try {
+		outputChannel = vscode.window.createOutputChannel('Alphonse Deploy');
+		logger = new Logger(outputChannel);
+	} catch (err) {
+		// 如果连输出通道都无法创建，使用控制台输出
+		console.error('Failed to create output channel:', err);
+	}
+
+	try {
+		// 显示输出通道（如果已创建）
+		if (outputChannel) {
+			outputChannel.show(true);
+		}
+		if (logger) {
+			logger.info('Alphonse Deploy 插件开始激活...');
+		}
+
+		// 立即注册 TreeView，不依赖任何初始化，确保视图始终可用
+		try {
+			moduleTreeProvider = new ModuleTreeProvider(null);
+			const treeView = vscode.window.createTreeView('moduleTreeView', {
+				treeDataProvider: moduleTreeProvider,
+				showCollapseAll: false,
+				canSelectMany: false
+			});
+			context.subscriptions.push(treeView);
+			if (logger) {
+				logger.info('模块树视图已注册（初始状态）');
+			}
+		} catch (treeViewError: any) {
+			const errorMsg = `TreeView 初始注册失败: ${treeViewError?.message || '未知错误'}`;
+			if (logger) {
+				logger.error(errorMsg);
+			}
+			console.error(errorMsg, treeViewError);
+		}
+
 		// 获取工作区根路径
 		const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 		const globalStoragePath = context.globalStorageUri?.fsPath;
-
-		// 初始化输出通道和日志
-		outputChannel = vscode.window.createOutputChannel('Alphonse Deploy');
-		logger = new Logger(outputChannel);
-		outputChannel.show(true);
 
 		if (!workspaceRoot) {
 			logger.info('未检测到工作区，使用全局配置');
 			if (!globalStoragePath) {
 				logger.error('无法获取全局存储路径，插件可能无法正常工作');
-				vscode.window.showErrorMessage('Alphonse Deploy: 无法初始化配置管理器');
-				return;
+				vscode.window.showWarningMessage('Alphonse Deploy: 无法获取全局存储路径，部分功能可能受限');
+				// 不提前返回，继续注册命令，但使用临时配置管理器
 			}
 		} else {
 			logger.info(`使用工作区配置: ${workspaceRoot}`);
 		}
 
 		// 初始化配置管理器（有工作区用项目配置，无工作区用全局配置）
-		configManager = new ConfigManager(workspaceRoot, globalStoragePath);
+		// 即使初始化失败，也要继续注册命令
+		try {
+			configManager = new ConfigManager(workspaceRoot, globalStoragePath);
+		} catch (error: any) {
+			logger.error(`配置管理器初始化失败: ${error?.message || '未知错误'}`);
+			vscode.window.showWarningMessage('Alphonse Deploy: 配置管理器初始化失败，部分功能可能受限');
+			// 不提前返回，继续注册命令
+		}
 
-		// 初始化模块树视图
-		moduleTreeProvider = new ModuleTreeProvider(configManager);
-		const treeView = vscode.window.createTreeView('moduleTreeView', {
-			treeDataProvider: moduleTreeProvider,
-			showCollapseAll: false,
-			canSelectMany: false
-		});
-		context.subscriptions.push(treeView);
-		logger.info('模块树视图已注册');
-		logger.info(`视图容器 ID: alphonseDeploy`);
-		logger.info(`树视图 ID: moduleTreeView`);
-
-		// 初始化配置 Webview
-		configWebviewProvider = new ConfigWebviewProvider(context, configManager, logger);
-		const webviewProviderRegistration = vscode.window.registerWebviewViewProvider(
-			ConfigWebviewProvider.viewType,
-			configWebviewProvider,
-			{
-				webviewOptions: {
-					retainContextWhenHidden: true
+		// 更新模块树视图的 provider（配置管理器初始化成功后）
+		if (moduleTreeProvider) {
+			try {
+				// 更新 provider 的 configManager
+				moduleTreeProvider.setConfigManager(configManager);
+				if (logger) {
+					logger.info('模块树视图已更新（配置管理器已初始化）');
+					logger.info(`视图容器 ID: alphonseDeploy`);
+					logger.info(`树视图 ID: moduleTreeView`);
 				}
+			} catch (error: any) {
+				const errorMsg = `更新模块树视图失败: ${error?.message || '未知错误'}`;
+				if (logger) {
+					logger.error(errorMsg);
+				}
+				console.error(errorMsg, error);
 			}
-		);
-		context.subscriptions.push(webviewProviderRegistration);
-		logger.info('Webview 视图提供者已注册');
+		}
 
-		// 注册命令
-		context.subscriptions.push(
-			vscode.commands.registerCommand('alphonse-deploy.detectModules', async () => {
-				await detectModules();
-			})
-		);
+		// 初始化配置 Webview（如果配置管理器可用）
+		if (configManager) {
+			try {
+				configWebviewProvider = new ConfigWebviewProvider(context, configManager, logger);
+				const webviewProviderRegistration = vscode.window.registerWebviewViewProvider(
+					ConfigWebviewProvider.viewType,
+					configWebviewProvider,
+					{
+						webviewOptions: {
+							retainContextWhenHidden: true
+						}
+					}
+				);
+				context.subscriptions.push(webviewProviderRegistration);
+				logger.info('Webview 视图提供者已注册');
+			} catch (error: any) {
+				logger.error(`Webview 视图提供者初始化失败: ${error?.message || '未知错误'}`);
+			}
+		}
+
+		// 注册命令（无论初始化是否成功，都要注册命令）
+		// 这是最关键的：命令必须在激活函数中注册，不能因为任何错误而跳过
+		try {
+			context.subscriptions.push(
+				vscode.commands.registerCommand('alphonse-deploy.detectModules', async () => {
+					if (!configManager) {
+						vscode.window.showErrorMessage('Alphonse Deploy: 配置管理器未初始化，请重新加载窗口');
+						if (logger) {
+							logger.error('检测模块命令被调用，但配置管理器未初始化');
+						}
+						return;
+					}
+					await detectModules();
+				})
+			);
+			if (logger) {
+				logger.info('命令已注册: alphonse-deploy.detectModules');
+			}
+		} catch (err: any) {
+			const errorMsg = `注册命令 detectModules 失败: ${err?.message || '未知错误'}`;
+			if (logger) {
+				logger.error(errorMsg);
+			}
+			console.error(errorMsg, err);
+		}
 
 
-		context.subscriptions.push(
-			vscode.commands.registerCommand('alphonse-deploy.editModule', async (item: ModuleTreeItem) => {
-				if (item.module) {
-					logger.info(`编辑模块: ${item.module.name} (${item.module.id})`);
-					await configWebviewProvider.loadModule(item.module.id);
-				} else {
-					logger.warn('编辑模块命令被调用，但模块信息为空');
-					vscode.window.showWarningMessage('无法编辑：模块信息不可用');
-				}
-			})
-		);
+		try {
+			context.subscriptions.push(
+				vscode.commands.registerCommand('alphonse-deploy.editModule', async (item: ModuleTreeItem) => {
+					if (!configManager || !configWebviewProvider) {
+						vscode.window.showErrorMessage('Alphonse Deploy: 配置管理器未初始化，请重新加载窗口');
+						return;
+					}
+					if (item.module) {
+						if (logger) {
+							logger.info(`编辑模块: ${item.module.name} (${item.module.id})`);
+						}
+						await configWebviewProvider.loadModule(item.module.id);
+					} else {
+						if (logger) {
+							logger.warn('编辑模块命令被调用，但模块信息为空');
+						}
+						vscode.window.showWarningMessage('无法编辑：模块信息不可用');
+					}
+				})
+			);
+			if (logger) {
+				logger.info('命令已注册: alphonse-deploy.editModule');
+			}
+		} catch (err: any) {
+			const errorMsg = `注册命令 editModule 失败: ${err?.message || '未知错误'}`;
+			if (logger) {
+				logger.error(errorMsg);
+			}
+			console.error(errorMsg, err);
+		}
 
 		context.subscriptions.push(
 			vscode.commands.registerCommand('alphonse-deploy.deleteModule', async (item: ModuleTreeItem) => {
+				if (!configManager || !moduleTreeProvider) {
+					vscode.window.showErrorMessage('Alphonse Deploy: 配置管理器未初始化，请重新加载窗口');
+					return;
+				}
 				if (item.module) {
 					const confirm = await vscode.window.showWarningMessage(
 						`确定要删除模块 ${item.module.name} 吗？`,
@@ -144,6 +238,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 		context.subscriptions.push(
 			vscode.commands.registerCommand('alphonse-deploy.refreshModules', () => {
+				if (!moduleTreeProvider) {
+					vscode.window.showErrorMessage('Alphonse Deploy: 模块树提供者未初始化，请重新加载窗口');
+					return;
+				}
 				moduleTreeProvider.refresh();
 			})
 		);
@@ -155,8 +253,19 @@ export function activate(context: vscode.ExtensionContext) {
 			})
 		);
 
-		logger.info('Alphonse Deploy 插件已激活');
-		logger.info('所有视图和命令已注册完成');
+		if (logger) {
+			logger.info('Alphonse Deploy 插件已激活');
+			logger.info('所有视图和命令已注册完成');
+			logger.info(`已注册命令: alphonse-deploy.detectModules`);
+			logger.info(`已注册命令: alphonse-deploy.editModule`);
+			logger.info(`已注册命令: alphonse-deploy.deleteModule`);
+			logger.info(`已注册命令: alphonse-deploy.buildModule`);
+			logger.info(`已注册命令: alphonse-deploy.uploadModule`);
+			logger.info(`已注册命令: alphonse-deploy.deployModule`);
+			logger.info(`已注册命令: alphonse-deploy.buildAndDeploy`);
+			logger.info(`已注册命令: alphonse-deploy.refreshModules`);
+			logger.info(`已注册命令: alphonse-deploy.showView`);
+		}
 
 		// 尝试延迟显示视图（给 VSCode 时间完成初始化）
 		setTimeout(async () => {

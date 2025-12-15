@@ -15,7 +15,18 @@
 		"Other"
 	],
 	"activationEvents": [
-		"*"
+		"onView:moduleTreeView",
+		"onView:configWebview",
+		"onCommand:alphonse-deploy.detectModules",
+		"onCommand:alphonse-deploy.editModule",
+		"onCommand:alphonse-deploy.deleteModule",
+		"onCommand:alphonse-deploy.buildModule",
+		"onCommand:alphonse-deploy.uploadModule",
+		"onCommand:alphonse-deploy.deployModule",
+		"onCommand:alphonse-deploy.buildAndDeploy",
+		"onCommand:alphonse-deploy.showView",
+		"onCommand:alphonse-deploy.refreshModules",
+		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -76,6 +87,10 @@
 			{
 				"command": "alphonse-deploy.showView",
 				"title": "显示部署管理视图"
+			},
+			{
+				"command": "alphonse-deploy.refreshModules",
+				"title": "刷新模块列表"
 			}
 		],
 		"menus": {

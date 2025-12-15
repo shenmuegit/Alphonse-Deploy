@@ -13,8 +13,53 @@
 
 ## 安装
 
+### 方式一：从源码安装（开发模式）
+
 1. 在 VSCode 中打开项目
 2. 按 `F5` 启动调试模式，或使用 `npm run compile` 编译后打包
+
+### 方式二：从 VSIX 文件安装
+
+1. 打包插件（见下方"打包插件"章节）
+2. 在 VSCode 中，按 `Ctrl+Shift+P`（或 `Cmd+Shift+P`）打开命令面板
+3. 输入 `Extensions: Install from VSIX...` 并选择
+4. 选择生成的 `.vsix` 文件（例如 `alphonse-deploy-0.0.1.vsix`）
+5. 安装完成后，重启 VSCode 或重新加载窗口
+
+## 打包插件
+
+### 前置要求
+
+1. 安装 `vsce`（VSCode Extension Manager）：
+```bash
+npm install -g @vscode/vsce
+```
+
+### 打包步骤
+
+1. **编译 TypeScript 代码**：
+```bash
+npm run compile
+```
+
+2. **打包插件**：
+```bash
+vsce package
+```
+
+3. 打包成功后，会在项目根目录生成 `.vsix` 文件，文件名格式为 `alphonse-deploy-x.x.x.vsix`
+
+### 打包选项
+
+- **指定版本号**：`vsce package --out alphonse-deploy-0.0.2.vsix`
+- **跳过依赖检查**：`vsce package --no-dependencies`（不推荐）
+- **打包但不压缩**：`vsce package --no-yarn`（如果使用 yarn）
+
+### 常见问题
+
+- **缺少许可证或仓库信息**：确保 `package.json` 中包含 `license` 和 `repository` 字段
+- **依赖未安装**：运行 `npm install` 安装所有依赖
+- **编译错误**：先运行 `npm run compile` 检查是否有编译错误
 
 ## 使用方法
 

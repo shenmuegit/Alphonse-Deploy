@@ -27,7 +27,16 @@ export class ModuleTreeProvider implements vscode.TreeDataProvider<ModuleTreeIte
 	private _onDidChangeTreeData: vscode.EventEmitter<ModuleTreeItem | undefined | null | void> = new vscode.EventEmitter<ModuleTreeItem | undefined | null | void>();
 	readonly onDidChangeTreeData: vscode.Event<ModuleTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
-	constructor(private configManager: ConfigManager) { }
+	private _configManager: ConfigManager | null;
+
+	constructor(configManager: ConfigManager | null) {
+		this._configManager = configManager;
+	}
+
+	setConfigManager(configManager: ConfigManager | null): void {
+		this._configManager = configManager;
+		this.refresh();
+	}
 
 	refresh(): void {
 		this._onDidChangeTreeData.fire();
@@ -40,12 +49,19 @@ export class ModuleTreeProvider implements vscode.TreeDataProvider<ModuleTreeIte
 	async getChildren(element?: ModuleTreeItem): Promise<ModuleTreeItem[]> {
 		if (!element) {
 			// 根节点，返回所有模块
+			if (!this._configManager) {
+				return [new ModuleTreeItem(
+					'配置管理器未初始化，请重新加载窗口',
+					vscode.TreeItemCollapsibleState.None
+				)];
+			}
+
 			try {
-				const modules = await this.configManager.getModules();
+				const modules = await this._configManager.getModules();
 				if (modules.length === 0) {
 					// 如果没有模块，显示提示信息
-					const isWorkspace = this.configManager.isWorkspaceConfiguration();
-					const message = isWorkspace 
+					const isWorkspace = this._configManager.isWorkspaceConfiguration();
+					const message = isWorkspace
 						? '点击上方按钮检测或添加模块'
 						: '未打开工作区，请先打开工作区文件夹或手动添加模块';
 					return [new ModuleTreeItem(
