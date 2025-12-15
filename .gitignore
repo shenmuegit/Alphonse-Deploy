@@ -1,0 +1,11 @@
+out
+node_modules
+.vscode-test
+*.vsix
+.DS_Store
+*.log
+.deploy
+/.cursor/
+/.vscode/
+/node_modules/
+.vscodeignore

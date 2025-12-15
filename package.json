@@ -1,0 +1,144 @@
+{
+	"name": "alphonse-deploy",
+	"displayName": "Alphonse Deploy",
+	"description": "模块化构建、压缩、上传和部署工具",
+	"version": "0.0.1",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/yourusername/alphonse-deploy.git"
+	},
+	"engines": {
+		"vscode": "^1.80.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"*"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "alphonseDeploy",
+					"title": "部署管理",
+					"icon": "resources/icon.svg"
+				}
+			]
+		},
+		"views": {
+			"alphonseDeploy": [
+				{
+					"id": "moduleTreeView",
+					"name": "模块列表",
+					"when": "true"
+				},
+				{
+					"id": "configWebview",
+					"name": "模块配置",
+					"type": "webview",
+					"when": "true"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "alphonse-deploy.detectModules",
+				"title": "检测模块",
+				"icon": "$(search)"
+			},
+			{
+				"command": "alphonse-deploy.editModule",
+				"title": "编辑模块"
+			},
+			{
+				"command": "alphonse-deploy.deleteModule",
+				"title": "删除模块"
+			},
+			{
+				"command": "alphonse-deploy.buildModule",
+				"title": "构建模块"
+			},
+			{
+				"command": "alphonse-deploy.uploadModule",
+				"title": "上传模块"
+			},
+			{
+				"command": "alphonse-deploy.deployModule",
+				"title": "部署模块"
+			},
+			{
+				"command": "alphonse-deploy.buildAndDeploy",
+				"title": "构建并部署"
+			},
+			{
+				"command": "alphonse-deploy.showView",
+				"title": "显示部署管理视图"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "alphonse-deploy.detectModules",
+					"when": "view == moduleTreeView",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "alphonse-deploy.editModule",
+					"when": "view == moduleTreeView && viewItem == module",
+					"group": "inline@1"
+				},
+				{
+					"command": "alphonse-deploy.buildAndDeploy",
+					"when": "view == moduleTreeView && viewItem == module",
+					"group": "inline@2",
+					"title": "执行部署"
+				},
+				{
+					"command": "alphonse-deploy.deleteModule",
+					"when": "view == moduleTreeView && viewItem == module",
+					"group": "inline@3"
+				},
+				{
+					"command": "alphonse-deploy.buildModule",
+					"when": "view == moduleTreeView && viewItem == module",
+					"group": "1_actions"
+				},
+				{
+					"command": "alphonse-deploy.uploadModule",
+					"when": "view == moduleTreeView && viewItem == module",
+					"group": "1_actions"
+				},
+				{
+					"command": "alphonse-deploy.deployModule",
+					"when": "view == moduleTreeView && viewItem == module",
+					"group": "1_actions"
+				},
+				{
+					"command": "alphonse-deploy.buildAndDeploy",
+					"when": "view == moduleTreeView && viewItem == module",
+					"group": "1_actions"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./"
+	},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"@types/vscode": "^1.80.0",
+		"@types/archiver": "^6.0.0",
+		"typescript": "^5.0.0"
+	},
+	"dependencies": {
+		"node-ssh": "^13.0.0",
+		"archiver": "^6.0.1"
+	}
+}
