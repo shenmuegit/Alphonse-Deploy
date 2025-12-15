@@ -3,6 +3,7 @@
 	"displayName": "Alphonse Deploy",
 	"description": "模块化构建、压缩、上传和部署工具",
 	"version": "0.0.1",
+	"publisher": "alphonse-deploy",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

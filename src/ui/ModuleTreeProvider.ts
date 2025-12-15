@@ -85,4 +85,3 @@ export class ModuleTreeProvider implements vscode.TreeDataProvider<ModuleTreeIte
 		return [];
 	}
 }
-
